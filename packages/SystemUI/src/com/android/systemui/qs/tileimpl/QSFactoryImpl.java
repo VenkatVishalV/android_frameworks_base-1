@@ -52,6 +52,7 @@ import com.android.systemui.qs.tiles.NfcTile;
 import com.android.systemui.qs.tiles.NightDisplayTile;
 import com.android.systemui.qs.tiles.PictureInPictureTile;
 import com.android.systemui.qs.tiles.RebootTile;
+import com.android.systemui.qs.tiles.PieTile;
 import com.android.systemui.qs.tiles.RotationLockTile;
 import com.android.systemui.qs.tiles.SoundSearchTIle;
 import com.android.systemui.qs.tiles.ScreenrecordTile;
@@ -110,6 +111,7 @@ public class QSFactoryImpl implements QSFactory {
         else if (tileSpec.equals("expanded_desktop")) return new ExpandedDesktopTile(mHost);
         else if (tileSpec.equals("usb_tether")) return new UsbTetherTile(mHost);
         else if (tileSpec.equals("weather")) return new WeatherTile(mHost);
+        else if (tileSpec.equals("pie")) return new PieTile(mHost);
         else if (tileSpec.equals("cpuinfo")) return new CPUInfoTile(mHost);
 		else if (tileSpec.equals("compass")) return new CompassTile(mHost);
         else if (tileSpec.equals("always_on_display")) return new AlwaysOnDisplayTile(mHost);

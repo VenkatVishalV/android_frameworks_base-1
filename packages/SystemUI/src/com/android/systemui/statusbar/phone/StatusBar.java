@@ -77,6 +77,7 @@ import android.content.res.Resources;
 import android.database.ContentObserver;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.ColorFilter;
 import android.graphics.PixelFormat;
 import android.graphics.Point;
@@ -223,6 +224,7 @@ import com.android.systemui.qs.QSTileHost;
 import com.android.systemui.qs.QuickStatusBarHeader;
 import com.android.systemui.qs.car.CarQSFragment;
 import com.android.systemui.recents.Recents;
+import com.android.systemui.recents.RecentsActivity;
 import com.android.systemui.recents.ScreenPinningRequest;
 import com.android.systemui.recents.events.EventBus;
 import com.android.systemui.recents.events.activity.AppTransitionFinishedEvent;
@@ -242,6 +244,7 @@ import com.android.systemui.statusbar.ExpandableNotificationRow;
 import com.android.systemui.statusbar.GestureRecorder;
 import com.android.systemui.statusbar.KeyboardShortcuts;
 import com.android.systemui.statusbar.KeyguardIndicationController;
+import com.android.systemui.statusbar.NotificationBackgroundView;
 import com.android.systemui.statusbar.NotificationData;
 import com.android.systemui.statusbar.NotificationData.Entry;
 import com.android.systemui.statusbar.NotificationGuts;
@@ -290,6 +293,7 @@ import com.android.systemui.util.NotificationChannels;
 import com.android.systemui.util.leak.LeakDetector;
 import com.android.systemui.volume.VolumeComponent;
 
+import java.lang.reflect.Field;
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -429,6 +433,29 @@ public class StatusBar extends SystemUI implements DemoMode,
      */
     private static final float SRC_MIN_ALPHA = 0.002f;
 
+    private static final String BLUR_STATUSBAR_ENABLED =
+            "system:" + Settings.System.BLUR_STATUSBAR_ENABLED;
+    private static final String BLUR_STATUSBAR_SCALE =
+            "system:" + Settings.System.BLUR_STATUSBAR_SCALE;
+    private static final String BLUR_STATUSBAR_RADIUS =
+            "system:" + Settings.System.BLUR_STATUSBAR_RADIUS;
+    private static final String BLUR_NOTIFICATIONS_ENABLED =
+            "system:" + Settings.System.BLUR_NOTIFICATIONS_ENABLED;
+    private static final String BLUR_NOTIFICATIONS_PERCENTAGE =
+            "system:" + Settings.System.BLUR_NOTIFICATIONS_PERCENTAGE;
+    private static final String BLUR_DARK_COLOR =
+            "system:" + Settings.System.BLUR_DARK_COLOR;
+    private static final String BLUR_LIGHT_COLOR =
+            "system:" + Settings.System.BLUR_LIGHT_COLOR;
+    private static final String BLUR_MIXED_COLOR =
+            "system:" + Settings.System.BLUR_MIXED_COLOR;
+    private static final String BLUR_RECENT_ENABLED =
+            "system:" + Settings.System.BLUR_RECENT_ENABLED;
+    private static final String BLUR_RECENT_SCALE =
+            "system:" + Settings.System.BLUR_RECENT_SCALE;
+    private static final String BLUR_RECENT_RADIUS =
+            "system:" + Settings.System.BLUR_RECENT_RADIUS;
+
     static {
         boolean onlyCoreApps;
         boolean freeformWindowManagement;
@@ -524,6 +551,18 @@ public class StatusBar extends SystemUI implements DemoMode,
     protected boolean mKeyguardFadingAway;
     protected long mKeyguardFadingAwayDelay;
     protected long mKeyguardFadingAwayDuration;
+
+    //Blur stuff
+    private int mBlurScale;
+    private int mBlurRadius;
+    private boolean mBlurredStatusBarExpandedEnabled;
+    private int mQSTranslucencyPercentage;
+    private boolean mBlurredRecents;
+    private int mRadiusRecents;
+    private int mScaleRecents;
+    private int mBlurDarkColorFilter;
+    private int mBlurMixedColorFilter;
+    private int mBlurLightColorFilter;
 
     // RemoteInputView to be activated after unlock
     private View mPendingRemoteInputView;
@@ -1150,6 +1189,19 @@ public class StatusBar extends SystemUI implements DemoMode,
         // TODO: use MediaSessionManager.SessionListener to hook us up to future updates
         // in session state
 
+        Dependency.get(TunerService.class).addTunable(this,
+                BLUR_STATUSBAR_ENABLED,
+                BLUR_STATUSBAR_SCALE,
+                BLUR_STATUSBAR_RADIUS,
+                BLUR_NOTIFICATIONS_ENABLED,
+                BLUR_NOTIFICATIONS_PERCENTAGE,
+                BLUR_DARK_COLOR,
+                BLUR_LIGHT_COLOR,
+                BLUR_MIXED_COLOR,
+                BLUR_RECENT_ENABLED,
+                BLUR_RECENT_SCALE,
+                BLUR_RECENT_RADIUS);
+
         // Lastly, call to the icon policy to install/update all the icons.
         mIconPolicy = new PhoneStatusBarPolicy(mContext, mIconController);
         mSettingsObserver.onChange(false); // set up
@@ -1474,6 +1526,41 @@ public class StatusBar extends SystemUI implements DemoMode,
         ThreadedRenderer.overrideProperty("ambientRatio", String.valueOf(1.5f));
 
         mFlashlightController = Dependency.get(FlashlightController.class);
+
+        try {
+            BroadcastReceiver receiver = new BroadcastReceiver() {
+
+                @Override
+                public void onReceive(Context context, Intent intent) {
+                    if (NotificationPanelView.mKeyguardShowing) {
+                        return;
+                    }
+                    String action = intent.getAction();
+
+                   if (action.equals(Intent.ACTION_CONFIGURATION_CHANGED)) {
+                        if (NotificationPanelView.mKeyguardShowing) {
+                            return;
+                        }
+                        RecentsActivity.updatePreferences();
+
+                        if (mExpandedVisible && NotificationPanelView.mBlurredStatusBarExpandedEnabled
+                                && (!NotificationPanelView.mKeyguardShowing)) {
+                            makeExpandedInvisible();
+                        }
+                    }
+                }
+            };
+
+            IntentFilter intent = new IntentFilter();
+            intent.addAction(Intent.ACTION_CONFIGURATION_CHANGED);
+            this.mContext.registerReceiver(receiver, intent);
+
+            RecentsActivity.init(this.mContext);
+
+            updatePreferences();
+        } catch (Exception e) {
+            Log.d(TAG, String.valueOf(e));
+        }
     }
 
     protected void createNavigationBar() {
@@ -3481,6 +3568,7 @@ public class StatusBar extends SystemUI implements DemoMode,
     }
 
     void makeExpandedVisible(boolean force) {
+        NotificationPanelView.startBlurTask();
         if (SPEW) Log.d(TAG, "Make expanded visible: expanded visible=" + mExpandedVisible);
         if (!force && (mExpandedVisible || !panelsEnabled())) {
             return;
@@ -3659,6 +3747,7 @@ public class StatusBar extends SystemUI implements DemoMode,
         if (!mStatusBarKeyguardViewManager.isShowing()) {
             WindowManagerGlobal.getInstance().trimMemory(ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN);
         }
+        NotificationPanelView.recycle();
     }
 
     private void adjustBrightness(int x) {
@@ -4548,6 +4637,7 @@ public class StatusBar extends SystemUI implements DemoMode,
             }
             else if (Intent.ACTION_SCREEN_ON.equals(action)) {
                 mScreenOn = true;
+                NotificationPanelView.recycle();
             }
             else if (DevicePolicyManager.ACTION_SHOW_DEVICE_MONITORING_DIALOG.equals(action)) {
                 mQSPanel.showDeviceMonitoringDialog();
@@ -6696,6 +6786,8 @@ public class StatusBar extends SystemUI implements DemoMode,
     protected AssistManager mAssistManager;
 
     protected boolean mVrMode;
+
+    private static final HashMap<String, Field> fieldCache = new HashMap<String, Field>();
 
     private Set<String> mNonBlockablePkgs;
 
@@ -8880,6 +8972,60 @@ public class StatusBar extends SystemUI implements DemoMode,
     }
     // End Extra BaseStatusBarMethods.
 
+    @Override
+    public void onTuningChanged(String key, String newValue) {
+        switch (key) {
+            case BLUR_STATUSBAR_ENABLED:
+                mBlurredStatusBarExpandedEnabled =
+                        newValue != null && Integer.parseInt(newValue) == 1;
+                break;
+            case BLUR_STATUSBAR_SCALE:
+                mBlurScale =
+                        newValue == null ? 10 : Integer.parseInt(newValue);
+                break;
+            case BLUR_STATUSBAR_RADIUS:
+                mBlurRadius =
+                        newValue == null ? 5 : Integer.parseInt(newValue);
+                break;
+            case BLUR_NOTIFICATIONS_ENABLED:
+            case BLUR_NOTIFICATIONS_PERCENTAGE:
+                updatePreferences();
+                break;
+            case BLUR_DARK_COLOR:
+                mBlurDarkColorFilter =
+                        newValue == null ? Color.LTGRAY : Integer.parseInt(newValue);
+                RecentsActivity.updateBlurColors(mBlurDarkColorFilter, mBlurMixedColorFilter, mBlurLightColorFilter);
+                break;
+            case BLUR_LIGHT_COLOR:
+                mBlurLightColorFilter =
+                        newValue == null ? Color.DKGRAY : Integer.parseInt(newValue);
+                RecentsActivity.updateBlurColors(mBlurDarkColorFilter, mBlurMixedColorFilter, mBlurLightColorFilter);
+                break;
+            case BLUR_MIXED_COLOR:
+                mBlurMixedColorFilter =
+                        newValue == null ? Color.GRAY : Integer.parseInt(newValue);
+                RecentsActivity.updateBlurColors(mBlurDarkColorFilter, mBlurMixedColorFilter, mBlurLightColorFilter);
+                break;
+            case BLUR_RECENT_ENABLED:
+                mBlurredRecents =
+                        newValue != null && Integer.parseInt(newValue) == 1;
+                RecentsActivity.updatePreferences();
+                break;
+            case BLUR_RECENT_SCALE:
+                mScaleRecents =
+                        newValue == null ? 6 : Integer.parseInt(newValue);
+                RecentsActivity.updateRadiusScale(mScaleRecents, mRadiusRecents);
+                break;
+            case BLUR_RECENT_RADIUS:
+                mRadiusRecents =
+                        newValue == null ? 3 : Integer.parseInt(newValue);
+                RecentsActivity.updateRadiusScale(mScaleRecents, mRadiusRecents);
+                break;
+            default:
+                break;
+        }
+    }
+
     @ChaosLab(name="GestureAnywhere", classification=Classification.NEW_METHOD)
     protected void addGestureAnywhereView() {
         mGestureAnywhereView = (GestureAnywhereView)View.inflate(
@@ -8932,5 +9078,74 @@ public class StatusBar extends SystemUI implements DemoMode,
         if (mOmniSwitchRecents) {
             OmniSwitchConstants.toggleOmniSwitchRecents(mContext, UserHandle.CURRENT);
         } // else Recents does it from its callback
+    }
+
+    public void updatePreferences() {
+        if (mNotificationData == null)
+            return;
+
+        for (Entry entry : mNotificationData.getActiveNotifications()) {
+            NotificationBackgroundView mBackgroundNormal = (NotificationBackgroundView) getObjectField(entry.row, "mBackgroundNormal");
+            NotificationBackgroundView mBackgroundDimmed = (NotificationBackgroundView) getObjectField(entry.row, "mBackgroundDimmed");
+
+            mBackgroundNormal.postInvalidate();
+            mBackgroundDimmed.postInvalidate();
+        }
+    }
+
+    public static Object getObjectField(Object obj, String fieldName) {
+        try {
+            return findField(obj.getClass(), fieldName).get(obj);
+        } catch (IllegalAccessException e) {
+            throw new IllegalAccessError(e.getMessage());
+        } catch (IllegalArgumentException e) {
+            throw e;
+        }
+    }
+
+    /**
+     * Look up a field in a class and set it to accessible. The result is cached.
+     * If the field was not found, a {@link NoSuchFieldError} will be thrown.
+     */
+    public static Field findField(Class<?> clazz, String fieldName) {
+        StringBuilder sb = new StringBuilder(clazz.getName());
+        sb.append('#');
+        sb.append(fieldName);
+        String fullFieldName = sb.toString();
+
+        if (fieldCache.containsKey(fullFieldName)) {
+            Field field = fieldCache.get(fullFieldName);
+            if (field == null)
+                throw new NoSuchFieldError(fullFieldName);
+            return field;
+        }
+
+        try {
+            Field field = findFieldRecursiveImpl(clazz, fieldName);
+            field.setAccessible(true);
+            fieldCache.put(fullFieldName, field);
+            return field;
+        } catch (NoSuchFieldException e) {
+            fieldCache.put(fullFieldName, null);
+            throw new NoSuchFieldError(fullFieldName);
+        }
+    }
+
+    private static Field findFieldRecursiveImpl(Class<?> clazz, String fieldName) throws NoSuchFieldException {
+        try {
+            return clazz.getDeclaredField(fieldName);
+        } catch (NoSuchFieldException e) {
+            while (true) {
+                clazz = clazz.getSuperclass();
+                if (clazz == null || clazz.equals(Object.class))
+                    break;
+
+                try {
+                    return clazz.getDeclaredField(fieldName);
+                } catch (NoSuchFieldException ignored) {
+                }
+            }
+            throw e;
+        }
     }
 }

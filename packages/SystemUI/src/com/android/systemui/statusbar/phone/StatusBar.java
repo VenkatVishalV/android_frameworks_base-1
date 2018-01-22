@@ -88,6 +88,7 @@ import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.Icon;
+import android.hardware.SensorManager;
 import android.media.AudioAttributes;
 import android.media.MediaMetadata;
 import android.media.session.MediaController;
@@ -1543,7 +1544,6 @@ public class StatusBar extends SystemUI implements DemoMode,
         mNotificationShelf.setStatusBarState(mState);
     }
 
-    @Override
     public NetworkController getNetworkController() {
         return mNetworkController;
     }
@@ -6746,8 +6746,6 @@ public class StatusBar extends SystemUI implements DemoMode,
         }
         return notifs;
     }
-
-    public abstract NetworkController getNetworkController();
 
     private final ContentObserver mPieSettingsObserver = new ContentObserver(mHandler) {
         @Override

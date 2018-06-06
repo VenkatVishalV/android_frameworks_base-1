@@ -162,6 +162,7 @@ import com.android.internal.statusbar.IStatusBarService;
 import com.android.internal.statusbar.NotificationVisibility;
 import com.android.internal.statusbar.StatusBarIcon;
 import com.android.internal.util.liquid.LiquidUtils;
+import com.android.internal.statusbar.ThemeAccentUtils;
 import com.android.internal.util.NotificationMessagingUtil;
 import com.android.internal.util.omni.OmniSwitchConstants;
 import com.android.internal.util.omni.TaskUtils;

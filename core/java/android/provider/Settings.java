@@ -4167,6 +4167,11 @@ public final class Settings {
         /**
          * @hide
          */
+        public static final String SYSTEM_GAME_MODE_ENABLE = "system_game_mode_enable";
+
+        /**
+         * @hide
+         */
         public static final String OMNIJAWS_WEATHER_ICON_PACK = "omnijaws_weather_icon_pack";
 
         /**
@@ -4987,6 +4992,12 @@ public final class Settings {
         public static final String ANIM_TILE_INTERPOLATOR = "anim_tile_interpolator";
 
         /**
+         * Disable hw buttons
+         * @hide
+         */
+        public static final String HARDWARE_KEYS_DISABLE = "hardware_keys_disable";
+
+        /**
          * Status bar weather temperature
          * 0: Hide the temperature
          * 1: Display the temperature with scale and image
@@ -5540,6 +5551,7 @@ public final class Settings {
 	        PRIVATE_SETTINGS.add(HIDE_LOCKSCREEN_ICON);
             PRIVATE_SETTINGS.add(LOCKSCREEN_VISUALIZER_ENABLED);
             PRIVATE_SETTINGS.add(RECENTS_OMNI_SWITCH_ENABLED);
+            PRIVATE_SETTINGS.add(SYSTEM_GAME_MODE_ENABLE);
         }
 
         /**
@@ -8044,12 +8056,6 @@ public final class Settings {
          */
         public static final String SEARCH_GLOBAL_SEARCH_ACTIVITY =
                 "search_global_search_activity";
-
-        /**
-         * Disable hw buttons - actions, brightness, haptic feedback, overflow menu
-         * @hide
-         */
-        public static final String HARDWARE_KEYS_DISABLE = "hardware_keys_disable";
 
         /**
          * The number of promoted sources in GlobalSearch.
@@ -11829,6 +11835,11 @@ public final class Settings {
          * @hide
          */
         public static final String POLICY_CONTROL_STYLE = "policy_control_style";
+
+        /**
+         * @hide
+         */
+        public static final String OVERRIDE_POLICY_CONTROL = "override_policy_control";
 
         /**
          * Defines global zen mode.  ZEN_MODE_OFF, ZEN_MODE_IMPORTANT_INTERRUPTIONS,

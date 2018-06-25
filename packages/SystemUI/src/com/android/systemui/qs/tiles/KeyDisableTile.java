@@ -19,10 +19,9 @@ package com.android.systemui.qs.tiles;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.provider.Settings;
-import android.provider.Settings.Global;
 import android.service.quicksettings.Tile;
+import com.android.systemui.qs.SystemSetting;
 
-import com.android.systemui.qs.GlobalSetting;
 import com.android.systemui.qs.QSHost;
 import com.android.systemui.qs.tileimpl.QSTileImpl;
 import com.android.systemui.plugins.qs.QSTile.BooleanState;
@@ -30,20 +29,25 @@ import com.android.systemui.R;
 
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 
-public class ExpandedDesktopTile extends QSTileImpl<BooleanState> {
+public class KeyDisableTile extends QSTileImpl<BooleanState> {
+    private final SystemSetting mSetting;
+    private final Icon mIcon = ResourceIcon.get(R.drawable.ic_qs_key_disable_on);
 
-    private final GlobalSetting mSetting;
-    private final Icon mIcon = ResourceIcon.get(R.drawable.ic_qs_expanded_desktop_on);
-
-    public ExpandedDesktopTile(QSHost host) {
+    public KeyDisableTile(QSHost host) {
         super(host);
-
-        mSetting = new GlobalSetting(mContext, mHandler, Global.OVERRIDE_POLICY_CONTROL, 0) {
+        mSetting = new SystemSetting(mContext, mHandler, Settings.System.HARDWARE_KEYS_DISABLE, 0) {
             @Override
             protected void handleValueChanged(int value) {
                 handleRefreshState(value);
             }
         };
+    }
+
+    @Override
+    public boolean isAvailable() {
+        final int deviceKeys = mContext.getResources().getInteger(
+                com.android.internal.R.integer.config_deviceHardwareKeys);
+        return deviceKeys != 0;
     }
 
     @Override
@@ -54,7 +58,13 @@ public class ExpandedDesktopTile extends QSTileImpl<BooleanState> {
     @Override
     public void handleClick() {
         setEnabled(!mState.value);
-        refreshState();
+                refreshState();
+        }
+
+    private void setEnabled(boolean enabled) {
+        Settings.System.putInt(mContext.getContentResolver(),
+                Settings.System.HARDWARE_KEYS_DISABLE,
+                enabled ? 1 : 0);
     }
 
     @Override
@@ -64,13 +74,7 @@ public class ExpandedDesktopTile extends QSTileImpl<BooleanState> {
 
     @Override
     public CharSequence getTileLabel() {
-        return mContext.getString(R.string.quick_settings_expanded_desktop_label);
-    }
-
-    private void setEnabled(boolean enabled) {
-        Settings.Global.putInt(mContext.getContentResolver(),
-                Settings.Global.OVERRIDE_POLICY_CONTROL,
-                enabled ? 1 : 0);
+        return mContext.getString(R.string.quick_settings_key_disable_label);
     }
 
     @Override
@@ -79,33 +83,22 @@ public class ExpandedDesktopTile extends QSTileImpl<BooleanState> {
             return;
         }
         final int value = arg instanceof Integer ? (Integer)arg : mSetting.getValue();
-        final boolean desktopExpanded = value != 0;
+        final boolean keysDisabled = value != 0;
         if (state.slash == null) {
             state.slash = new SlashState();
         }
         state.icon = mIcon;
-        state.value = desktopExpanded;
-        state.slash.isSlashed = !state.value;
-        state.label = mContext.getString(R.string.quick_settings_expanded_desktop_label);
-        if (desktopExpanded) {
+        state.value = keysDisabled;
+        state.slash.isSlashed = state.value;
+        state.label = mContext.getString(R.string.quick_settings_key_disable_label);
+        if (keysDisabled) {
             state.contentDescription =  mContext.getString(
-                    R.string.accessibility_quick_settings_expanded_desktop_on);
+                    R.string.accessibility_quick_settings_key_disable_on);
             state.state = Tile.STATE_ACTIVE;
         } else {
             state.contentDescription =  mContext.getString(
-                    R.string.accessibility_quick_settings_expanded_desktop_off);
+                    R.string.accessibility_quick_settings_key_disable_off);
             state.state = Tile.STATE_INACTIVE;
-        }
-    }
-
-    @Override
-    protected String composeChangeAnnouncement() {
-        if (mState.value) {
-            return mContext.getString(
-                    R.string.accessibility_quick_settings_expanded_desktop_on);
-        } else {
-            return mContext.getString(
-                    R.string.accessibility_quick_settings_expanded_desktop_off);
         }
     }
 
@@ -117,7 +110,7 @@ public class ExpandedDesktopTile extends QSTileImpl<BooleanState> {
     @Override
     public void handleSetListening(boolean listening) {
         if (mSetting != null) {
-                mSetting.setListening(listening);
-            }
+                        mSetting.setListening(listening);
+                    }
     }
 }

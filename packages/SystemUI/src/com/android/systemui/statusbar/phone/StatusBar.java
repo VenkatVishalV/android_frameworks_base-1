@@ -8897,20 +8897,6 @@ public class StatusBar extends SystemUI implements DemoMode,
         }
     };
 
-    public void updateEdgeGestures(boolean enabled) {
-        Log.d(TAG, "updateEdgeGestures: Updating edge gestures");
-        if (enabled) {
-            if (gesturesController == null) {
-                gesturesController = new ScreenGesturesController(mContext, mWindowManager, this);
-            }
-            gesturesController.reorient();
-        } else if (!enabled && gesturesController != null) {
-            gesturesController.stop();
-            gesturesController = null;
-        }
-    }
-}
-
     @Override
     public void hideRecentApps(boolean triggeredFromAltTab, boolean triggeredFromHomeKey) {
         if (mOmniSwitchRecents) {
@@ -8923,5 +8909,18 @@ public class StatusBar extends SystemUI implements DemoMode,
         if (mOmniSwitchRecents) {
             OmniSwitchConstants.toggleOmniSwitchRecents(mContext, UserHandle.CURRENT);
         } // else Recents does it from its callback
+    }
+
+    public void updateEdgeGestures(boolean enabled) {
+        Log.d(TAG, "updateEdgeGestures: Updating edge gestures");
+        if (enabled) {
+            if (gesturesController == null) {
+                gesturesController = new ScreenGesturesController(mContext, mWindowManager, this);
+            }
+            gesturesController.reorient();
+        } else if (!enabled && gesturesController != null) {
+            gesturesController.stop();
+            gesturesController = null;
+        }
     }
 }

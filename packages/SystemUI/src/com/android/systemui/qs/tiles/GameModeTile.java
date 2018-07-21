@@ -19,11 +19,11 @@ package com.android.systemui.qs.tiles;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.provider.Settings;
-import android.provider.Settings.System;
+import android.provider.Settings.Secure;
 import android.service.quicksettings.Tile;
 
 import com.android.systemui.qs.QSHost;
-import com.android.systemui.qs.SystemSetting;
+import com.android.systemui.qs.SecureSetting;
 import com.android.systemui.qs.tileimpl.QSTileImpl;
 import com.android.systemui.plugins.qs.QSTile.BooleanState;
 import com.android.systemui.R;
@@ -32,15 +32,15 @@ import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 
 public class GameModeTile extends QSTileImpl<BooleanState> {
     private final Icon mIcon = ResourceIcon.get(R.drawable.ic_qs_game_mode_on);
-    private final SystemSetting mSetting;
+    private final SecureSetting mSetting;
     private boolean[] mChanged = new boolean[3];
 
     public GameModeTile(QSHost host) {
         super(host);
 
-        mSetting = new SystemSetting(mContext, mHandler, System.SYSTEM_GAME_MODE_ENABLE, 0) {
+        mSetting = new SecureSetting(mContext, mHandler, Secure.GAME_MODE_ENABLE) {
             @Override
-            protected void handleValueChanged(int value) {
+            protected abstract void handleValueChanged(int value) {
                 handleRefreshState(value);
             }
         };
@@ -79,16 +79,16 @@ public class GameModeTile extends QSTileImpl<BooleanState> {
             Settings.Global.putInt(mContext.getContentResolver(),
                     Settings.Global.OVERRIDE_POLICY_CONTROL, 0);
         }
-        needsChange = Settings.System.getInt(mContext.getContentResolver(),
-                Settings.System.HARDWARE_KEYS_DISABLE, 0) == 0;
+        needsChange = Settings.Secure.getInt(mContext.getContentResolver(),
+                Settings.Secure.HARDWARE_KEYS_DISABLE, 0) == 0;
         if (enabled && needsChange) {
             mChanged[1] = true;
-            Settings.System.putInt(mContext.getContentResolver(),
-                    Settings.System.HARDWARE_KEYS_DISABLE, 1);
+            Settings.Secure.putInt(mContext.getContentResolver(),
+                    Settings.Secure.HARDWARE_KEYS_DISABLE, 1);
         } else if (!enabled && mChanged[1]) {
             mChanged[1] = false;
-            Settings.System.putInt(mContext.getContentResolver(),
-                    Settings.System.HARDWARE_KEYS_DISABLE, 0);
+            Settings.Secure.putInt(mContext.getContentResolver(),
+                    Settings.Secure.HARDWARE_KEYS_DISABLE, 0);
         }
         needsChange = Settings.Global.getInt(mContext.getContentResolver(),
                 Settings.Global.HEADS_UP_NOTIFICATIONS_ENABLED, 1) == 1;
@@ -102,8 +102,8 @@ public class GameModeTile extends QSTileImpl<BooleanState> {
                     Settings.Global.HEADS_UP_NOTIFICATIONS_ENABLED, 1);
         }
 
-        Settings.System.putInt(mContext.getContentResolver(),
-                Settings.System.SYSTEM_GAME_MODE_ENABLE,
+        Settings.Secure.putInt(mContext.getContentResolver(),
+                Settings.Secure.SYSTEM_GAME_MODE_ENABLE,
                 enabled ? 1 : 0);
     }
 
